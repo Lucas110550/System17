@@ -1,0 +1,234 @@
+\documentclass{article}
+
+\usepackage{graphicx} % Required for the inclusion of images
+\usepackage{natbib} % Required to change bibliography style to APA
+\usepackage{amsmath} % Required for some math elements
+\usepackage{multirow}
+\usepackage{fourier}
+\usepackage{booktabs}
+\usepackage[colorlinks,linkcolor=red]{hyperref}
+
+\setlength\parindent{0pt} % Removes all indentation from paragraphs
+
+\renewcommand{\labelenumi}{\alph{enumi}.}
+
+\title{Five-Stage MIPS Pipeline CPU}
+
+\author{Zhuolin \textsc{Yang}}
+
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+
+\tableofcontents
+\newpage
+
+\section{Introductory}
+This report is a brief summary of my final course work of "Computer System". In this course, I implemented a CPU with five-stage MIPS pipeline which can execute some basic MIPS instructions and supports forwarding in order to reduce the data hazards.
+
+This project is constructed in Verilog HDL.
+
+\section{Main Modules}
+
+\subsection{Five stages}
+In the standard five-stage MIPS pipeline, there are five basic pipeline stages:
+\begin{itemize}
+\item
+Instruction Fetch(IF)
+\item
+Instruction Decode(ID)
+\item
+Execution(EX)
+\item
+Memory access(MEM)
+\item
+Write Back(WB)
+\end{itemize}
+
+For the consideration of convenient and regularity, all of those five stages were implemented as several modules.
+
+\subsubsection{Instruction Fetch}
+This module is used for controlling the program counter and sending it to the ROM to fetch the current instruction, which contains several input or output channels:
+
+Input:
+
+\begin{itemize}
+\item clk: current clock signal
+\item rst: current reset signal
+\item stall : current stall signal
+\item pc\_we : program counter write enable
+\item pc\_write\_instr
+\end{itemize}
+
+Output:
+
+\begin{itemize}
+\item pc\_read\_instr(output)
+\end{itemize}
+
+This module is implemented as \text{if.v}.
+
+\subsubsection{Instruction Decode}
+This module is used for decoding the instructions and obtaining the operators and the operators' type, operands and the target register of each instructions. This module also contains several inputs and outputs.
+
+Input:
+
+\begin{itemize}
+\item rst: reset signal
+\item instr\_i: input instructions
+\item reg1\_read\_instr: input data of the first operand
+\item reg2\_read\_instr: input data of the second operand
+\item pc\_i: input data of program counter
+\item ex\_op: the possible instruction type of the instructions forwarded by EX stage
+\item ex\_we: the write enable of the instructions forwarded by EX stage
+\item ex\_write\_addr: the write address of the instructions forwarded by EX stage
+\item ex\_write\_instr: the write instruction of the instructions forwarded by EX stage
+\item mem\_we: the write enable of the instructions forwarded by MEM stage
+\item mem\_write\_addr: the write address of the instructions forwarded by MEM stage
+\item mem\_write\_instr: the write instruction of the instructions forwarded by MEM stage
+\end{itemize}
+
+Output:
+
+\begin{itemize}
+\item instr\_o: output instructions
+\item op: decoded operator,
+\item type: decoded operator type,
+\item reg1, reg2: two operands
+\item reg1\_re, reg2\_re: the Read Enable of two operands
+\item reg1\_read\_addr, reg2\_read\_addr: the Read Address of two operands
+\item we: Write enable signal
+\item write\_addr: write address
+\item write\_instr: write instruction data
+\item pc\_we: program counter Write enable
+\item pc\_write\_instr: program counter write instruction data
+\item stallsignal
+\end{itemize}
+
+In order to reduce the data hazards, This module managed to fetch the latest data forwarding from the stage EX and the stage MEM. After doing this, in order to avoid the only rest data hazard, we can use the stallsignal to stall the pipeline.
+
+This module is implemented in \text{id.v}.
+
+\newpage
+\subsubsection{Execution}
+This module is used for calculating the result of the instructions received from the stage ID.
+
+Input:
+
+\begin{itemize}
+\item rst: reset signal
+\item instr\_i: the input instruction
+\item op\_i: the input operator
+\item type: the input operator type
+\item reg1\_i, reg2\_i: the input of two operands.
+\item we\_i: the input of Write enable signal
+\item write\_address\_i: the input write address
+\item write\_instr\_i: the input write data
+\end{itemize}
+
+Output:
+
+\begin{itemize}
+\item instr\_o: the output instruction
+\item op\_o: the output operator
+\item reg1\_o, reg2\_o: the output two operands
+\item we\_o: the output of Write enable signal
+\item write\_address\_i: the output write address
+\item write\_instr\_i: the output write data
+\item stallsignal
+\end{itemize}
+
+In fact the stallsignal is not necessary, since all kinds of calculation can be finished in a single cycle.
+
+This module is implemented in \text{ex.v}.
+
+\newpage
+\subsubsection{Memory Access}
+This module is used for calculating the memory address and sending to the RAM to execute the load or store instructions.
+
+Input:
+
+\begin{itemize}
+\item rst: reset signal
+\item instr: the input instructions
+\item op: the input operator
+\item reg1, reg2: the input operands
+\item mem\_i: the input read data
+\item we\_i: the input Write enable signal
+\item write\_addr\_i: the input write address
+\item write\_instr\_i: the input write data
+\end{itemize}
+
+Output:
+
+\begin{itemize}
+\item mem\_re: Memory Read enable
+\item mem\_read\_addr: Memory Read address
+\item mem\_we: Memory Write enable
+\item mem\_write\_addr: Memory Write address
+\item mem\_write: Memory Write position mark
+\item mem\_write\_instr: Memory write data
+\item we\_o: the output Write enable signal
+\item write\_addr\_o: the output write address
+\item write\_instr\_o: the output write data
+\end{itemize}
+
+This module is implemented in \text{mem.v}.
+
+\subsubsection{Write Back}
+This module is not useful in current CPU, since there's no need of register HI and LO by execute current instructions.
+
+\newpage
+\subsection{Latch Modules}
+In the five-stage MIPS pipeline, there are totally four pipeline latches which used as the buffers between adjacent pipeline stages.
+
+These modules are implemented in:
+\begin{itemize}
+\item
+\texttt{if\_id.v}
+\item
+\texttt{id\_ex.v}
+\item
+\texttt{ex\_mem.v}
+\item
+\texttt{mem\_wb.v}
+\end{itemize}
+In fact, All of the pipeline latches transferred the data on the posedge of the clock signal.
+
+\subsubsection{ROM}
+Since the instructions cannot be modified at runtime, ROM uses some inputs to read the program counter and outputs the corresponding instruction.
+
+This module is implemented in \texttt{rom.v}.
+
+\subsubsection{RAM}
+RAM can do memory read and memory write to read the address and outputs the corresponding data and write data.
+
+This module is implemented in \texttt{ram.v}.
+
+\subsubsection{Register File}
+The register file use some inputs to get the value of corresponding register or writing a value to register.
+
+This module is implemented in \texttt{register.v}.
+
+\subsection{Control Module}
+Control module is used for receiving the stall request from the pipeline and send the stall signal to the pipeline latches.
+
+This module is implemented in \texttt{ctrl.v}.
+
+\newpage
+\section{Conclusion}
+From this project, I learned: 
+\begin{itemize}
+\item
+A new programming language, Verilog HDL.
+
+\item
+A better understanding of computer architecture.
+
+I learned a lot by from a textbook called "How to finish your own CPU", its impressive structure helps me a lot.
+\end{itemize}
+Due to the short time and not quite high ability, it's not easy to fulfil a CPU full of my ideas, but just a basic CPU I learned from textbook. But I will try to improve my skills in next semester.
+\end{document}
